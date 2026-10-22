@@ -1,0 +1,131 @@
+-- ============================================================
+-- Users table for Image Makers Facial Recognition System
+-- Compatible with PostgreSQL (shared DB server)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS users_facial_recognition_imagemakers (
+    id            SERIAL PRIMARY KEY,
+    user_id       VARCHAR(36)  NOT NULL UNIQUE DEFAULT gen_random_uuid()::TEXT,
+    username      VARCHAR(80)  NOT NULL UNIQUE,
+    email         VARCHAR(200) NOT NULL UNIQUE,
+    password_hash VARCHAR(256) NOT NULL,
+    role          VARCHAR(20)  NOT NULL DEFAULT 'client',
+    is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at    TIMESTAMP    NOT NULL DEFAULT NOW(),
+    last_login    TIMESTAMP
+);
+
+-- Indexes for fast lookups
+CREATE INDEX IF NOT EXISTS idx_users_imagemakers_username ON users_facial_recognition_imagemakers (username);
+CREATE INDEX IF NOT EXISTS idx_users_imagemakers_email    ON users_facial_recognition_imagemakers (email);
+CREATE INDEX IF NOT EXISTS idx_users_imagemakers_user_id  ON users_facial_recognition_imagemakers (user_id);
+
+-- ============================================================
+-- Drivers table
+-- ============================================================
+CREATE TABLE IF NOT EXISTS drivers_imagemakers (
+    id              SERIAL PRIMARY KEY,
+    driver_id       VARCHAR(20)  NOT NULL UNIQUE,
+    first_name      VARCHAR(100) NOT NULL,
+    last_name       VARCHAR(100) NOT NULL,
+    email           VARCHAR(200) UNIQUE,
+    phone           VARCHAR(20),
+    role            VARCHAR(20)  DEFAULT 'Driver',
+    enrollment_date TIMESTAMP    DEFAULT NOW(),
+    profile_photo   VARCHAR(200),
+    status          VARCHAR(20)  DEFAULT 'active',
+    embedding_path  VARCHAR(200),
+    photo_count     INTEGER      DEFAULT 0
+);
+
+-- ============================================================
+-- Recognition events
+-- ============================================================
+CREATE TABLE IF NOT EXISTS recognition_events_imagemakers (
+    id               SERIAL PRIMARY KEY,
+    driver_id        INTEGER REFERENCES drivers_imagemakers(id),
+    driver_id_string VARCHAR(20),
+    video_filename   VARCHAR(200),
+    timestamp        TIMESTAMP DEFAULT NOW(),
+    confidence       FLOAT,
+    frame_number     INTEGER,
+    status           VARCHAR(20),
+    thumbnail_path   VARCHAR(200)
+);
+
+CREATE TABLE IF NOT EXISTS recognition_events_latest_imagemakers (
+    id               SERIAL PRIMARY KEY,
+    driver_id        INTEGER,
+    driver_id_string VARCHAR(50),
+    video_filename   VARCHAR(255) UNIQUE,
+    frame_number     INTEGER,
+    confidence       FLOAT,
+    status           VARCHAR(50),
+    thumbnail_path   VARCHAR(255),
+    created_at       TIMESTAMP DEFAULT NOW(),
+    updated_at       TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================================
+-- Audit logs
+-- ============================================================
+CREATE TABLE IF NOT EXISTS audit_logs_imagemakers (
+    id          SERIAL PRIMARY KEY,
+    user_id     VARCHAR(36),
+    username    VARCHAR(80),
+    action      VARCHAR(100) NOT NULL,
+    target_type VARCHAR(50),
+    target_id   VARCHAR(80),
+    details     TEXT,
+    ip_address  VARCHAR(45),
+    timestamp   TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================================
+-- Custom fields
+-- ============================================================
+CREATE TABLE IF NOT EXISTS custom_fields_imagemakers (
+    id          SERIAL PRIMARY KEY,
+    name        VARCHAR(100) NOT NULL UNIQUE,
+    field_type  VARCHAR(30)  NOT NULL DEFAULT 'text',
+    is_required BOOLEAN      DEFAULT FALSE,
+    is_active   BOOLEAN      DEFAULT TRUE,
+    options     TEXT,
+    sort_order  INTEGER      DEFAULT 0,
+    created_at  TIMESTAMP    DEFAULT NOW(),
+    updated_at  TIMESTAMP    DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS driver_custom_field_values_imagemakers (
+    id              SERIAL PRIMARY KEY,
+    driver_id       INTEGER REFERENCES drivers_imagemakers(id),
+    custom_field_id INTEGER REFERENCES custom_fields_imagemakers(id),
+    value           TEXT
+);
+
+-- ============================================================
+-- Role permissions
+-- ============================================================
+CREATE TABLE IF NOT EXISTS role_permissions_imagemakers (
+    id         SERIAL PRIMARY KEY,
+    role       VARCHAR(20) NOT NULL,
+    permission VARCHAR(80) NOT NULL,
+    granted    BOOLEAN     NOT NULL DEFAULT TRUE,
+    updated_at TIMESTAMP   DEFAULT NOW(),
+    CONSTRAINT uq_role_perm_imagemakers UNIQUE (role, permission)
+);
+
+-- ============================================================
+-- Default admin user
+-- Password: Admin@1234  (werkzeug pbkdf2:sha256 hash)
+-- CHANGE THIS after first login!
+-- ============================================================
+INSERT INTO users_facial_recognition_imagemakers (username, email, password_hash, role, is_active)
+VALUES (
+    'admin',
+    'admin@imagemakers.local',
+    'pbkdf2:sha256:600000$rQ8KmXvZ$2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a',
+    'admin',
+    TRUE
+)
+ON CONFLICT (username) DO NOTHING;
